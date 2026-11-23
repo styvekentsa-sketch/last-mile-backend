@@ -46,7 +46,9 @@ const PERSONAL_KEYS = [...CONTACT_KEYS, 'client_name', 'name_client', 'delivery_
 
 // ---------- Serveur ----------
 const logs = [];
-const server = spawn(process.execPath, ['src/app.js'], { cwd: backend, env: { ...process.env, PORT: String(PORT) }, stdio: ['ignore', 'pipe', 'pipe'] });
+// Notifications externes desactivees : le test ne doit jamais contacter de vrai service (jetons reels dans .env)
+const NOTIFICATIONS_OFF = { WHATSAPP_CHANNEL_ENABLED: 'false', TELEGRAM_ENABLED: 'false', SMS_ENABLED: 'false', MESSENGER_ENABLED: 'false', LINKEDIN_ENABLED: 'false' };
+const server = spawn(process.execPath, ['src/app.js'], { cwd: backend, env: { ...process.env, ...NOTIFICATIONS_OFF, PORT: String(PORT) }, stdio: ['ignore', 'pipe', 'pipe'] });
 server.stdout.on('data', (d) => logs.push(d.toString()));
 server.stderr.on('data', (d) => logs.push(d.toString()));
 for (let i = 0; i < 60 && !logs.join('').includes(`port ${PORT}`); i++) await sleep(200);
@@ -201,8 +203,9 @@ try {
       const r = await get(`/tracking/${code}`);
       assert.equal(r.status, 200);
       assert.equal(findKey(r.json, PERSONAL_KEYS), null, `cle interdite dans le suivi ${code}`);
-      const raw = JSON.stringify(r.json);
-      for (const secret of ['Testeur', 'Confidentiel', '699', 'secret@', 'Bonamoussadi', 'Bonapriso', 'Manga Bell', 'Client Démo', 'Eric', '4.0', '9.7']) {
+      // Dates ISO retirees : « ...:54.000Z » contiendrait « 4.0 » et fausserait la recherche de coordonnees GPS
+      const raw = JSON.stringify(r.json).replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/g, '');
+      for (const secret of ['Testeur', 'Confidentiel', '699', 'secret@', 'Bonamoussadi', 'Bonapriso', 'Manga Bell', 'Client Démo', 'Eric', '4.0', '9.7', '9.6']) {
         assert.ok(!raw.includes(secret), `donnee personnelle exposee : ${secret}`);
       }
     }
